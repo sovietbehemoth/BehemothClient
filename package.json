@@ -1,0 +1,22 @@
+{
+  "name": "behemothclient",
+  "version": "0.0.1",
+  "description": "A command line discord client.",
+  "main": "index.js",
+  "scripts": {
+    "test": "None"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sovietbehemoth/BehemothClient.git"
+  },
+  "keywords": [
+    "None"
+  ],
+  "author": "sovietbehemoth",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sovietbehemoth/BehemothClient/issues"
+  },
+  "homepage": "https://github.com/sovietbehemoth/BehemothClient#readme"
+}
