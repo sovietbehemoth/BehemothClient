@@ -2,21 +2,20 @@
   "name": "behemothclient",
   "version": "0.0.1",
   "description": "A command line discord client.",
-  "main": "index.js",
-  "scripts": {
-    "test": "None"
-  },
+  "main": "./src/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sovietbehemoth/BehemothClient.git"
   },
-  "keywords": [
-    "None"
-  ],
   "author": "sovietbehemoth",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/sovietbehemoth/BehemothClient/issues"
   },
-  "homepage": "https://github.com/sovietbehemoth/BehemothClient#readme"
+  "homepage": "https://github.com/sovietbehemoth/BehemothClient#readme",
+  "dependencies": {
+    "clipboardy": "^3.0.0",
+    "terminal-kit": "^2.1.8"
+  },
+  "type": "module"
 }
