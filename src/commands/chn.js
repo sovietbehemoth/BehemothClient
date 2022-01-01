@@ -5,7 +5,7 @@ async function API_display50(ctx) {
     if (ctx.Meta.SelectedChannel === undefined) {
         return;
     }
-
+    
     const url = `https://discord.com/api/v9/channels/${ctx.Meta.SelectedChannel}/messages?limit=50`;
 
     const res = await fetch(url, {
@@ -19,6 +19,7 @@ async function API_display50(ctx) {
     }
 
     for (let i = 50; i > 0; i--) {
+        
         ctx.Socket.messageReceiveCallback(messages[i-1], true);
     }
 }
@@ -45,7 +46,7 @@ async function API_chn(ctx, args) {
         }
 
         ctx.Meta.Channels = parse;
-        console.log();
+        //console.log();
         return;
     }
 
@@ -54,10 +55,11 @@ async function API_chn(ctx, args) {
     if (parseInt(channel) <= 50) {
         if (ctx.Meta.Channels[parseInt(channel)] !== undefined) {
             ctx.Meta.SelectedChannel = ctx.Meta.Channels[parseInt(channel)].id;
-        } else {
-            ctx.Keys.displayMessage(`~chn: Cannot find channel with index of ${parseInt(channel)}.`);
-            API_display50(ctx);
             ctx.Meta.Mode = "MSG";
+            await API_display50(ctx);
+            return;
+        } else {
+            ctx.Keys.displayMessage(`~chn: Cannot find channel with index of ${parseInt(channel)}:${channel}.`);
             return;
         }
     } else if (isNaN(parseInt(channel))) {
@@ -65,8 +67,8 @@ async function API_chn(ctx, args) {
         for (let i = 0; i < ctx.Meta.Channels.length; i++) {
             if (ctx.Meta.Channels[i].name.toLowerCase().trim() === search) {
                 ctx.Meta.SelectedChannel = ctx.Meta.Channels[i].id;
-                API_display50(ctx);
                 ctx.Meta.Mode = "MSG";
+                await API_display50(ctx);
                 return;
             }
         }
@@ -76,8 +78,8 @@ async function API_chn(ctx, args) {
         for (let i = 0; i < ctx.Meta.Channels.length; i++) {
             if (channel.trim() === ctx.Meta.Channels[i].id) {
                 ctx.Meta.SelectedChannel = ctx.Meta.Channels[i].id;
-                API_display50(ctx);
                 ctx.Meta.Mode = "MSG";
+                await API_display50(ctx);
                 return;
             }
         }

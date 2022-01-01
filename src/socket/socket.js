@@ -5,17 +5,29 @@ import clipboard from "clipboardy";
 import { term } from "../keys/KeyHandler.js";
 import WebSocket from "ws";
 import fetch from 'node-fetch';
+import fs from 'fs';
+import color from "colors";
 
 class BehemothClientSocket {
+    //Main client object superseding this class.
     Client;
 
-
+    //Handle login prompt special conditions, for Keys object.
     inLoginPrompt = false;
+
+    //Token buffer from stdin.
     tokenCache = [];
+
+    //WebSocket client.
     WS;
+
+    //Sequence number for gateway interaction.
     Sequences;
+
+    //Interval object for heartbeat with gateway.
     HeartbeatInterval;
 
+    //Special handling for authentication prompt.
     promptLoginEvent(key, matches, data) {
 
         switch (key) {
@@ -23,13 +35,35 @@ class BehemothClientSocket {
                 this.tokenCache.pop();
                 break;
             case 'ENTER':
+
+                //Done with token typing.
+
                 this.inLoginPrompt = false;
                 term.deleteLine();
                 this.Client.Settings.User.Token = this.tokenCache.join("");
                 this.tokenCache = [];
-                term.clear();
-                this.initializeSocket();
+
+                fetch(`https://discord.com/api/v9/@me`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": this.Client.Settings.User.Token,
+                        "Content-Type": "application/json"
+                    }
+                }).then(async (res) => {
+                    const info = JSON.parse(await res.text());
+
+                    this.Client.Settings.User.ID = info.id;
+                    this.Client.Settings.User.Username = info.username;
+
+                    fs.writeFileSync("./data/settings.json", JSON.stringify(this.Client.Settings));     //write token to settings file.
+                    this.Client.invokeCommand("srv", ["-ls"]);
+                });
+
+                
                 break;
+
+
+            //Treat both right click and ctrl+v as paste.
             case 'RIGHT_CLICK':
                 clipboard.default.readSync().then((buffer) => {
                     for (let i = 0; i < buffer.length; i++) {
@@ -44,6 +78,9 @@ class BehemothClientSocket {
                     }
                 });
                 break;
+
+
+
             case 'CTRL_C':
                 process.exit();
             default:
@@ -53,8 +90,9 @@ class BehemothClientSocket {
     }
 
     
-
+    //Identification with websocket.
     identifySocket(payload) {
+        //Interval object.
         this.HeartbeatInterval = setInterval(() => {
             this.WS.send(JSON.stringify({
                 "op": 1,
@@ -62,6 +100,7 @@ class BehemothClientSocket {
             }));
         }, payload.d.heartbeat_interval);
 
+        //Identification with gateway.
         this.WS.send(JSON.stringify({
             "op": 2,
             "d": {
@@ -102,39 +141,82 @@ class BehemothClientSocket {
 
 
 
+    //Callback for optional handling of sent messages.
+    async messageSendCallback(TextBuffer) {
 
-    messageSendCallback() {
+        if (TextBuffer.trim() === "") {
+            return;
+        }
 
         fetch(`https://discord.com/api/v9/channels/${this.Client.Meta.SelectedChannel}/messages`, {
             method: "POST",
             headers: this.Client.HTTP_Header,
             body: JSON.stringify({
-                "content": this.Client.TextBuffer.join(""),
+                "content": TextBuffer,
                 "tts": false
             })
         });
     }
 
+    //Callback for optional handling of received messages.
     messageReceiveCallback(payload, onret=false) {
 
+        if (payload === undefined) return;
 
-        if (payload.mention_everyone) {
+        if (payload?.mention_everyone) {
             this.Client.ping();
-        } else if (payload.content.includes())
+        }
+
+        if (payload?.mentions?.length > 0) {
+            payload.mentions.forEach(element => {
+                if (element.id === this.Client.Settings.User.ID) {
+                    this.Client.ping();
+
+                    let server;
+
+                    this.Client.Meta.Servers.forEach((server_) => {
+                        if (server_.id === payload.guild_id) {
+                            server = server_.name
+                        }
+                    });
+                    
+                    
+
+                    this.Client.Keys.displayMessage(`${server} > ${payload.channel_id} > ${payload.author.username}#${payload.author.discriminator}: ${payload.content}`.bgYellow);
+                }
+            });
+        }
 
 
         if (this.Client.Meta.Mode === "MSG") {
             if (payload.channel_id === this.Client.Meta.SelectedChannel) {
                 let send = `${payload.author.username}#${payload.author.discriminator}: ${payload.content}`;
-                //this.Client.Keys.displayMessage(send);
-                console.log(payload);
+                //console.log(payload); process.exit();
+                this.Client.Keys.displayMessage(send);
             }
         }
 
         
     }
 
+
+    async appendID() {
+        const url = "https://discord.com/api/v8/users/@me";
+        const res = await fetch(url, {
+            headers: this.Client.HTTP_Header,
+        });
+
+        const parse = JSON.parse( await res.text() );
+        this.Client.Settings.User.ID = parse.id;
+        fs.writeFileSync("./data/settings.json", JSON.stringify(this.Client.Settings));
+    }
+
+    //Construction of socket, only to be called once.
     async initializeSocket() {
+        if (this.Client.Settings.User.ID === "") {
+            await this.appendID();
+        }
+
         this.Client.HTTP_Header = {
             'Authorization': this.Client.Settings.User.Token,
             'Content-Type': "application/json"
@@ -155,14 +237,25 @@ class BehemothClientSocket {
                 resolve();
             });
         }
+
+        this.WS.onclose = async (event) => {
+            switch (event.code) {
+                case 4004:     
+                    this.Client.Settings.User.Token = "";
+                    await this.startSocketPub(this.Client, true);
+            }
+        }
     }
 
-    async startSocketPub(client) {
+    //'constructor' to be called once.
+    async startSocketPub(client, badtoken=false) {
         this.Client = client;
 
 
         if (client.Settings.User.Token === undefined || client.Settings.User?.Token === "") {
-            if (this.Client.Settings.FirstUse) {
+            if (badtoken) {
+                this.Client.Keys.displayMessage("Incorrect user token.");
+            } else if (this.Client.Settings.FirstUse) {
                 this.Client.Keys.displayMessage(`You are not logged in.\n\nHow To Log In.\n\n  1. In discord, do Ctrl+Shift+I.\n  2. Paste this 'window.location.reload();' and wait about 2 seconds.\n  3. Paste this after waiting: 'copy(document.body.appendChild(document.createElement \`iframe\`).contentWindow.window.localStorage.token);'\n  4. Paste here and enter.\n`);
             } else {
                 this.Client.Keys.displayMessage(`You are not logged in. Log in to use BehemothClient.\n`);
@@ -170,8 +263,10 @@ class BehemothClientSocket {
 
 
             this.inLoginPrompt = true;
-            process.stdin.write("Token: ");
+            process.stdout.write("Token: ");
         } else this.initializeSocket();
+
+
     }
 }
 

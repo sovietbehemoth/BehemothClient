@@ -19,7 +19,7 @@ async function API_srv(ctx, msg) {
         }
 
         ctx.Meta.Servers = parsed;
-        console.log();
+        // console.log();
         return;
     }    
 

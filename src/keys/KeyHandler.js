@@ -13,7 +13,7 @@ const term = termkit.createTerminal();
 class KeyHandler {
     Client;
 
-
+    //Left arrow event. Moves cursor left once, decrementing position.
     leftArrow = () => {
         if (this.Client.CursorIndex < 0) {
             this.Client.CursorIndex = 0;
@@ -23,6 +23,7 @@ class KeyHandler {
         }
     }
 
+    //Right arrow event. Moves cursor right once, incrementing event.
     rightArrow() {
         this.Client.CursorIndex++;
         if (this.Client.CursorIndex >= this.Client.TextBuffer.length + 1) {
@@ -32,9 +33,9 @@ class KeyHandler {
         }
     }
 
+    //Deletes character before cursor.
     backspace() {
         term.backDelete();
-        
         
 
         //Delete char indexed.
@@ -55,10 +56,16 @@ class KeyHandler {
 
     }
 
+    //Submits prompt in TextBuffer.
     enter() {
         
+        const input = this.Client.TextBuffer.join("");
+
+        this.Client.TextBuffer = [];
+        this.Client.CursorIndex = 0;
+
         if (this.Client.Meta.Mode === "CMD") {
-            const input = this.Client.TextBuffer.join("");
+            
             let args = [];
             let command;
             if (input.includes(" ")) {
@@ -74,30 +81,37 @@ class KeyHandler {
                         return;
                     }
                     this.Client.invokeCommand(command, args);
+                    return;
                 }
             }
+
+            if (command.trim() === "") return;
+
+            this.Client.Keys.displayMessage(`Could not find command by the name of '${command.trim()}'.`);
         } else if (this.Client.Meta.Mode === "MSG") {
-            this.Client.Socket.messageSendCallback(this.Client.TextBuffer.join(""));
+            term.deleteLine();
+            this.Client.Socket.messageSendCallback(input);
         }
 
-        term.deleteLine();
-        this.Client.TextBuffer = [];
+        //term.deleteLine();
     }
 
 
-
+    //Append char to TextBuffer.
     appendChar(char, data) {
         term.noFormat( Buffer.isBuffer( data.code ) ? data.code : String.fromCharCode( data.code ) ) ; //default handling.
         this.Client.TextBuffer.push( typeof char !== "object" ? char.toString() : "" ); //prevent typerrors
         this.Client.CursorIndex++; 
     }
 
+    //Unstable cls command.
     clearScreen() {
         for (let i = this.Client.LineIndex; i > this.Client.LineIndex; i--) {
             term.deleteLine(i);
         }
     }
 
+    //Retrieve buffer from clipboard and write to buffer and stdin.
     paste() {
         clipboard.read().then((buffer) => {
             process.stdin.write(buffer);
@@ -107,7 +121,7 @@ class KeyHandler {
         });
     }
 
-
+    //Main key press event handler.
     keyTriggerCallback = (key, matches, data) => {
 
         if (this.Client.Socket.inLoginPrompt) {
@@ -146,8 +160,8 @@ class KeyHandler {
 
 
 
-
-    displayMessage(message) {
+    //Safe method of creating a message that will not interrupt any other fields. Use instead of console.log()
+    displayMessage(message, format = undefined) {
 
         this.Client.LineIndex++;
 
@@ -155,14 +169,17 @@ class KeyHandler {
 
         term.deleteLine();
         term.nextLine();
-
-        console.log(message);
+        
+        if (format) {
+            console.log(`%c${message}%c`, format);
+        } else console.log(message);
+        
 
         try {
             const decode = this.Client.TextBuffer.join("");
 
             if (decode !== "") {
-                process.stdin.write(decode);
+                process.stdout.write(decode);
             }
         } catch {
             console.log("Error: Write failed. Re-instantiate the client and if the problem persists, report it.");
@@ -172,6 +189,7 @@ class KeyHandler {
         term.restoreCursor();
     }
 
+    //curses boilerplate. only called once.
     prepareKeyEvent() {
         term.on( 'mouse' , function( name , data ) {
             term.moveTo( data.x , data.y ) ;
