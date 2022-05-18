@@ -5,17 +5,29 @@ import { term } from "../keys/KeyHandler.js";
 
 async function API_srv(ctx, msg) {
 
-    if (msg[0] === "-ls") {
+    if (msg[0] === "-help") {
+        ctx.Keys.displayMessage("srv: Select servers.\nWithout a flag, this command will select a server given its number, ID, or name. It will allow for the chn command to access its channels. The '>' character can also be supplied followed by a channel's number, ID, or name (of course given that the channel is in the server).\n  o: Unselect server.\n  ls: List all servers.\n  lsn: Update server list.");
+        return;
+    }
+
+    if (msg[0] === "-o") {
+        ctx.Meta.SelectedServer = undefined;
+        return;
+    }
+
+    if (msg[0] === "-ls" || msg[0] === "-lsn") {
         const url = "https://discord.com/api/v9/users/@me/guilds";
         const res = await fetch(url, { 
             headers: ctx.HTTP_Header
         });
             
         const parsed = JSON.parse(await res.text());
-            
-        for (let i = 0; i < parsed.length; i++) {
-            const guild = parsed[i];
-            ctx.Keys.displayMessage(`\t${i}: ${guild.id}: ${guild.name}`);
+        
+        if (msg[0] === "-ls") {
+            for (let i = 0; i < parsed.length; i++) {
+                const guild = parsed[i];
+                ctx.Keys.displayMessage(`\t${i}: ${guild.id}: ${guild.name}`);
+            }
         }
 
         ctx.Meta.Servers = parsed;

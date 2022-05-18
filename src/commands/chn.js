@@ -20,11 +20,16 @@ async function API_display50(ctx) {
 
     for (let i = 50; i > 0; i--) {
         
-        ctx.Socket.messageReceiveCallback(messages[i-1], true);
+        ctx.Socket.messageReceiveCallback(messages[i-1], true, false);
     }
 }
 
 async function API_chn(ctx, args) {
+
+    if (args[0] === "-help") {
+        ctx.Keys.displayMessage("chn: Enter channel.\nWithout a flag, this command will enter a channel. It will display the past 50 messages as well as incoming messages from other users. From then, input will be sent to the channel. Commands can be run in this context by prefixing them with an underscore, with '_q' being the command to exit messaging mode.\n  ls: List channels in selected server.\n  lsn: Update channel list.");
+        return;
+    }
 
     if (ctx.Meta.SelectedServer === undefined) {
         ctx.Keys.displayMessage("~chn: No server selected.");
