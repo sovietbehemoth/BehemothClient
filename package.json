@@ -3,11 +3,17 @@
   "version": "0.0.1",
   "description": "A command line discord client.",
   "main": "./src/index.js",
+  "type": "module",
+  "typings": "./src/client.d.ts",
+  "engines": {
+    "node": ">= 14.15.1"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sovietbehemoth/BehemothClient.git"
   },
   "author": "sovietbehemoth",
+  "types": "./src/client.d.ts",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/sovietbehemoth/BehemothClient/issues"
@@ -15,7 +21,11 @@
   "homepage": "https://github.com/sovietbehemoth/BehemothClient#readme",
   "dependencies": {
     "clipboardy": "^3.0.0",
+    "colors": "^1.4.0",
     "terminal-kit": "^2.1.8"
   },
-  "type": "module"
+  "devDependencies": {},
+  "scripts": {
+    "start": "node ./src/index.js"
+  }
 }
