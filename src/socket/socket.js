@@ -27,6 +27,27 @@ class BehemothClientSocket {
     //Interval object for heartbeat with gateway.
     HeartbeatInterval;
 
+    updateUserInfo() {
+        fetch(`https://discord.com/api/v9/users/@me`, {
+            method: "GET",
+            headers: {
+                "Authorization": this.Client.Settings.User.Token,
+                "Content-Type": "application/json"
+            }
+        }).then(async (res) => {
+            if (res.status === 401) {
+                this.startSocketPub(this.Client, true);
+                return;
+            }
+
+            const info = JSON.parse(await res.text());
+
+            this.Client.Settings.User.ReadOnly = info;
+
+            fs.writeFileSync("./src/data/settings.json", JSON.stringify(this.Client.Settings, null, 2));     //write token to settings file.
+        });
+    }
+
     //Special handling for authentication prompt.
     promptLoginEvent(key, matches, data) {
 
@@ -43,21 +64,8 @@ class BehemothClientSocket {
                 this.Client.Settings.User.Token = this.tokenCache.join("");
                 this.tokenCache = [];
 
-                fetch(`https://discord.com/api/v9/@me`, {
-                    method: "GET",
-                    headers: {
-                        "Authorization": this.Client.Settings.User.Token,
-                        "Content-Type": "application/json"
-                    }
-                }).then(async (res) => {
-                    const info = JSON.parse(await res.text());
-
-                    this.Client.Settings.User.ID = info.id;
-                    this.Client.Settings.User.Username = info.username;
-
-                    fs.writeFileSync("./data/settings.json", JSON.stringify(this.Client.Settings));     //write token to settings file.
-                    this.Client.invokeCommand("srv", ["-ls"]);
-                });
+                this.updateUserInfo();
+                this.Client.invokeCommand("srv", ["-ls"]);
 
                 
                 break;
@@ -65,14 +73,15 @@ class BehemothClientSocket {
 
             //Treat both right click and ctrl+v as paste.
             case 'RIGHT_CLICK':
-                clipboard.default.readSync().then((buffer) => {
+                clipboard.read().then((buffer) => {
                     for (let i = 0; i < buffer.length; i++) {
                         this.tokenCache.push(buffer[i]);
                     }
                 });
                 break;
             case 'CTRL_V':
-                clipboard.default.readSync().then((buffer) => {
+                // console.log(clipboard.readSync); break;
+                clipboard.read().then((buffer) => {
                     for (let i = 0; i < buffer.length; i++) {
                         this.tokenCache.push(buffer[i]);
                     }
@@ -139,12 +148,30 @@ class BehemothClientSocket {
         }
     }
 
-
+    async triggerTyping() {
+        await fetch(`https://discord.com/api/v9/channels/${this.Client.Meta.SelectedChannel}/typing`, {
+            method: "POST",
+            headers: this.Client.HTTP_Header
+        });
+    }
 
     //Callback for optional handling of sent messages.
     async messageSendCallback(TextBuffer) {
 
-        if (TextBuffer.trim() === "") {
+        const output = TextBuffer.trim();
+
+        if (output.startsWith("_")) {
+            this.Client.invokeCommand(output.split("_")[1]?.split(" ")[0], output.split("_")[1], true);
+            return;
+        }
+
+        if (output === "") {
+            return;
+        }
+
+
+        if (output.includes(this.Client.Settings.User.Token)) {
+            this.Client.Keys.displayMessage("~BehemothClient: I blocked this message because it contains your user token. Don't share this!");
             return;
         }
 
@@ -159,18 +186,18 @@ class BehemothClientSocket {
     }
 
     //Callback for optional handling of received messages.
-    messageReceiveCallback(payload, onret=false) {
+    messageReceiveCallback(payload, onret=false, pingable=true) {
 
         if (payload === undefined) return;
 
-        if (payload?.mention_everyone) {
+        if (payload?.mention_everyone && pingable) {
             this.Client.ping();
         }
 
         if (payload?.mentions?.length > 0) {
             payload.mentions.forEach(element => {
-                if (element.id === this.Client.Settings.User.ID) {
-                    this.Client.ping();
+                if (element.id === this.Client.Settings.User.ReadOnly.id) {
+                    if (pingable) this.Client.ping();
 
                     let server;
 
@@ -207,13 +234,13 @@ class BehemothClientSocket {
         });
 
         const parse = JSON.parse( await res.text() );
-        this.Client.Settings.User.ID = parse.id;
-        fs.writeFileSync("./data/settings.json", JSON.stringify(this.Client.Settings));
+        this.Client.Settings.User.ReadOnly.id = parse.id;
+        fs.writeFileSync("./data/settings.json", JSON.stringify(this.Client.Settings, null, 2));
     }
 
-    //Construction of socket, only to be called once.
+    //ReadOnlyruction of socket, only to be called once.
     async initializeSocket() {
-        if (this.Client.Settings.User.ID === "") {
+        if (this.Client.Settings.User.ReadOnly.id === "") {
             await this.appendID();
         }
 
