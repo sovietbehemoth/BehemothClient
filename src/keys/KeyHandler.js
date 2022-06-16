@@ -62,7 +62,11 @@ class KeyHandler {
         const input = this.Client.TextBuffer.join("");
 
         this.Client.TextBuffer = [];
-        this.Client.CursorIndex = 0;
+        
+        for (; this.Client.CursorIndex > 0; this.Client.CursorIndex--) {
+            term.backDelete();
+        };
+
 
         if (this.Client.Meta.Mode === "CMD") {
             
@@ -77,7 +81,7 @@ class KeyHandler {
             for (let i = 0; i < this.Client.API.length; i++) {
                 if (this.Client.API[i].name === command) {
                     if (!this.Client.API[i].options.default_args && args.length === 0) {
-                        this.Client.Keys.displayMessage(`~${this.Client.API[i].name}: Expected more than 0 arguments.`);
+                        this.Client.Keys.displayMessage(`~${this.Client.API[i].name}: Expected more than 0 arguments.`, false, true);
                         return;
                     }
                     this.Client.invokeCommand(command, args);
@@ -114,7 +118,7 @@ class KeyHandler {
     //Retrieve buffer from clipboard and write to buffer and stdin.
     paste() {
         clipboard.read().then((buffer) => {
-            process.stdin.write(buffer);
+            process.stdout.write(buffer);
             for (let i = 0; i < buffer.length; i++) {
                 this.Client.TextBuffer.push(buffer[i]);
             }
@@ -127,6 +131,10 @@ class KeyHandler {
         if (this.Client.Socket.inLoginPrompt) {
             this.Client.Socket.promptLoginEvent(key, matches, data);
             return;
+        }
+
+        if (this.Client.Meta.Mode === "MSG" && this.Client.Settings.Typing) {
+            this.Client.Socket.triggerTyping();
         }
 
         switch (key) {
@@ -156,9 +164,9 @@ class KeyHandler {
 
 
 
+    ScrollBackBuffer = [];
 
-
-
+    
 
     //Safe method of creating a message that will not interrupt any other fields. Use instead of console.log()
     displayMessage(message, format = undefined) {
@@ -166,16 +174,20 @@ class KeyHandler {
         this.Client.LineIndex++;
 
         term.saveCursor();
-
         term.deleteLine();
         term.nextLine();
+
         
         if (format) {
             console.log(`%c${message}%c`, format);
-        } else console.log(message);
-        
+        } else {
+            console.log(message);
+        }
+
+        this.ScrollBackBuffer.push(message);
 
         try {
+
             const decode = this.Client.TextBuffer.join("");
 
             if (decode !== "") {
@@ -187,6 +199,8 @@ class KeyHandler {
         }
 
         term.restoreCursor();
+
+        if (this.ScrollBackBuffer.length >= 50) this.ScrollBackBuffer = [];
     }
 
     //curses boilerplate. only called once.
