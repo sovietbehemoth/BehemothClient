@@ -1,1 +1,17 @@
-{"User":{"Token":"", "ID": "", "Username": ""},"Identity":{"$os":"BehemothClient","$device":"BehemothClient","$browser":"BehemothClient"},"Startup":{"ServerListOnStartup":true},"NotificationSound":"../media/discord-ping-sound.mp3","FirstUse":true}
+{
+  "User": {
+    "Token": "",
+    "ReadOnly": {}
+  },
+  "Identity": {
+    "$os": "BehemothClient",
+    "$device": "BehemothClient",
+    "$browser": "BehemothClient"
+  },
+  "Startup": {
+    "ServerListOnStartup": true
+  },
+  "Typing": true,
+  "NotificationSound": "./media/discord-ping-sound.mp3",
+  "FirstUse": true
+}
